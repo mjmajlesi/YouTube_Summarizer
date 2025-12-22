@@ -1,0 +1,2 @@
+This is the AI-powered YouTube summarization web app built using Next.js for the frontend and FastAPI for the backend. It allows users to input YouTube video URLs and receive concise summaries of the video content.
+for Summarizer I used TF-IDF to extract key points from video transcripts.
