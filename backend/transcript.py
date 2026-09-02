@@ -3,7 +3,6 @@ from urllib.parse import urlparse, parse_qs
 
 
 def extract_video_id(url: str):
-    
     parsed = urlparse(url)
     host = parsed.netloc.lower()
 
@@ -22,10 +21,26 @@ def extract_video_id(url: str):
 
     return None
 
-def getTranscript(video_id : str):
+def getTranscript(video_id: str):
     ytt_api = YouTubeTranscriptApi()
-    transcripts = ytt_api.fetch(video_id)
-    return " ".join([t.text for t in transcripts])
+    # ponytail: preferred fa→en covers 99% of your audience; full fallback below is the ceiling
+    try:
+        fetched = ytt_api.fetch(video_id, languages=["fa", "en"])
+        return " ".join([t.text for t in fetched])
+    except Exception:
+        pass
+
+    # fallback: any available language
+    transcript_list = ytt_api.list(video_id)
+    try:
+        transcript = transcript_list.find_transcript(["fa", "en"])
+    except Exception:
+        try:
+            transcript = next(iter(transcript_list))
+        except StopIteration:
+            raise Exception("No transcripts available for this video")
+    fetched = transcript.fetch()
+    return " ".join([t.text for t in fetched])
 
 def summary(text:str , maxLen : int = 5):
   sentences = text.split('. ')
