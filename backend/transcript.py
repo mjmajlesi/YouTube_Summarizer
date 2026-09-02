@@ -1,5 +1,7 @@
-from youtube_transcript_api import YouTubeTranscriptApi
+import re
 from urllib.parse import urlparse, parse_qs
+
+from youtube_transcript_api import YouTubeTranscriptApi
 
 
 def extract_video_id(url: str):
@@ -21,6 +23,7 @@ def extract_video_id(url: str):
 
     return None
 
+
 def getTranscript(video_id: str):
     ytt_api = YouTubeTranscriptApi()
     # ponytail: preferred fa→en covers 99% of your audience; full fallback below is the ceiling
@@ -30,7 +33,6 @@ def getTranscript(video_id: str):
     except Exception:
         pass
 
-    # fallback: any available language
     transcript_list = ytt_api.list(video_id)
     try:
         transcript = transcript_list.find_transcript(["fa", "en"])
@@ -42,6 +44,34 @@ def getTranscript(video_id: str):
     fetched = transcript.fetch()
     return " ".join([t.text for t in fetched])
 
-def summary(text:str , maxLen : int = 5):
-  sentences = text.split('. ')
-  return '. '.join(sentences[:maxLen]) + ('. ' if len(sentences) > maxLen else '')
+
+def summary(text: str, maxLen: int = 5) -> str:
+    """Extractive summary via TF-IDF: score each sentence by sum of TF-IDF weights, pick top-k in original order."""
+    text = text.strip()
+    if not text:
+        return ""
+
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?؟])\s+", text) if s.strip()]
+    if len(sentences) <= maxLen:
+        return " ".join(sentences)
+
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        import numpy as np
+    except ImportError:
+        # ponytail: install scikit-learn for real TF-IDF
+        return " ".join(sentences[:maxLen])
+
+    for stop in ("english", None):
+        try:
+            vectorizer = TfidfVectorizer(stop_words=stop)
+            tfidf = vectorizer.fit_transform(sentences)
+            break
+        except ValueError:
+            continue
+    else:
+        return " ".join(sentences[:maxLen])
+
+    scores = np.asarray(tfidf.sum(axis=1)).ravel()
+    top = sorted(np.argsort(scores)[-maxLen:])
+    return " ".join(sentences[i] for i in top)
